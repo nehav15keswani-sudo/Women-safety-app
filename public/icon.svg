@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f43f5e" />
+      <stop offset="100%" stop-color="#be123c" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#881337" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#0f172a" />
+  <path d="M256 80 L392 136 C392 260 334 358 256 404 C178 358 120 260 120 136 Z" fill="url(#shieldGrad)" filter="url(#shadow)" />
+  <path d="M256 120 L360 162 C360 256 314 332 256 368 C198 332 152 256 152 162 Z" fill="#e11d48" opacity="0.4" />
+  <!-- Center Star of Protection -->
+  <path d="M256 180 L274 236 L332 236 L286 270 L304 326 L256 292 L208 326 L226 270 L180 236 L238 236 Z" fill="#ffffff" />
+</svg>
