@@ -21,6 +21,19 @@ import { OfflineMapNavigator } from './components/OfflineMapNavigator';
 import { AutoSosWarningModal } from './components/AutoSosWarningModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { QuickSosWidget } from './components/QuickSosWidget';
+import { AuthModal } from './components/AuthModal';
+import { EmergencyLockScreen } from './components/EmergencyLockScreen';
+import { AutoSosPaymentModal } from './components/AutoSosPaymentModal';
+import {
+  UserProfile,
+  getCurrentUser,
+  initializeDefaultUser,
+  signOut as authSignOut
+} from './utils/authStorage';
+import {
+  AutoSosSubscription,
+  getAutoSosSubscription
+} from './utils/paymentStorage';
 import { EmergencyContact, AudioRecording, LocationCoordinates } from './types';
 import { DEFAULT_CONTACTS } from './data/safetyData';
 import { getCurrentLocation } from './utils/location';
@@ -44,6 +57,19 @@ export default function App() {
   const [isSirenActive, setIsSirenActive] = useState(false);
   const [isAudioRecording, setIsAudioRecording] = useState(false);
   const [userLocation, setUserLocation] = useState<LocationCoordinates | null>(null);
+
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getCurrentUser());
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // Emergency Lock Screen State
+  const [isLockScreenOpen, setIsLockScreenOpen] = useState(false);
+
+  // Auto-SOS Payment & Subscription State
+  const [autoSosSubscription, setAutoSosSubscription] = useState<AutoSosSubscription>(() =>
+    getAutoSosSubscription()
+  );
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   // Auto-SOS Accelerometer state
   const [autoSosConfig, setAutoSosConfig] = useState<MotionDetectorConfig>(() => {
@@ -78,7 +104,7 @@ export default function App() {
 
   // User profile
   const [userName, setUserName] = useState<string>(() => {
-    return localStorage.getItem('aegis_user_name') || 'Neha';
+    return localStorage.getItem('aegis_user_name') || 'Neha Keswani';
   });
 
   // Emergency contacts state with localStorage persistence
@@ -95,6 +121,16 @@ export default function App() {
 
   // Motion detector reference
   const detectorRef = useRef<MotionDetector | null>(null);
+
+  // Initialize seed user if none exists
+  useEffect(() => {
+    if (!currentUser) {
+      initializeDefaultUser().then((u) => {
+        setCurrentUser(u);
+        setUserName(u.name);
+      });
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     localStorage.setItem('aegis_language', currentLanguage);
@@ -121,41 +157,52 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('aegis_autosos_enabled', String(isAutoSosEnabled));
-    if (detectorRef.current) {
-      if (isAutoSosEnabled) {
-        detectorRef.current.start();
-      } else {
-        detectorRef.current.stop();
-      }
-    }
   }, [isAutoSosEnabled]);
 
-  // Initial passive geolocation lock
+  // Passively fetch location on app launch
   useEffect(() => {
     getCurrentLocation()
-      .then((coords) => setUserLocation(coords))
-      .catch((e) => console.log('Location warm-up:', e.message));
+      .then((loc) => setUserLocation(loc))
+      .catch((err) => console.log('Passive GPS lock note:', err.message));
+
+    // Handle PWA 1-Touch Lock Screen shortcut launch or auto-lockscreen setting
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.get('mode');
+    const action = params.get('action');
+
+    if (action === 'dial112') {
+      window.location.href = 'tel:112';
+      return;
+    }
+
+    if (mode === 'lockscreen' || action === 'onetouch') {
+      setIsLockScreenOpen(true);
+      return;
+    }
+
+    const autoLaunch = localStorage.getItem('aegis_auto_lockscreen');
+    if (autoLaunch === 'true') {
+      setIsLockScreenOpen(true);
+    }
   }, []);
 
-  // Motion Detector Initialization
-  const handleMotionTrigger = useCallback((reason: MotionTriggerReason, magnitude: number) => {
-    setAutoSosWarning({
-      isOpen: true,
-      reason,
-      magnitude,
-    });
-  }, []);
-
-  const handleTelemetryUpdate = useCallback((t: MotionTelemetry) => {
-    setTelemetry(t);
-  }, []);
-
+  // Initialize and run accelerometer motion detector
   useEffect(() => {
     const detector = new MotionDetector(
       autoSosConfig,
-      handleMotionTrigger,
-      handleTelemetryUpdate
+      (reason: MotionTriggerReason, mag: number) => {
+        if (!isAutoSosEnabled) return;
+        setAutoSosWarning({
+          isOpen: true,
+          reason,
+          magnitude: mag,
+        });
+      },
+      (t: MotionTelemetry) => {
+        setTelemetry(t);
+      }
     );
+
     detectorRef.current = detector;
 
     if (isAutoSosEnabled) {
@@ -164,46 +211,45 @@ export default function App() {
 
     return () => {
       detector.stop();
-      detectorRef.current = null;
     };
-  }, []);
+  }, [isAutoSosEnabled, autoSosConfig]);
 
-  const handleConfirmAutoSos = (reason: MotionTriggerReason) => {
-    setAutoSosWarning({ isOpen: false, reason: null, magnitude: 0 });
+  const handleRequestMotionPermission = async (): Promise<boolean> => {
+    if (detectorRef.current) {
+      return detectorRef.current.requestPermission();
+    }
+    return false;
+  };
+
+  const handleConfirmAutoSos = () => {
+    setAutoSosWarning((prev) => ({ ...prev, isOpen: false }));
     setActiveTab('sos');
     setExternalActiveSos(true);
-
-    const note =
-      reason === 'fall'
-        ? `[AUTO-SOS DETECTED]: Severe sudden fall / ground impact detected by device accelerometer.`
-        : `[AUTO-SOS DETECTED]: Violent rapid distress shaking detected by device accelerometer.`;
-    setSosCustomNote(note);
-
+    setSosCustomNote(
+      autoSosWarning.reason === 'fall'
+        ? '[AUTO-SOS DETECTED]: Severe fall & impact detected by accelerometer telemetry.'
+        : '[AUTO-SOS DETECTED]: Violent physical distress shake detected.'
+    );
     startEmergencySiren();
     setIsSirenActive(true);
-
-    getCurrentLocation()
-      .then((c) => setUserLocation(c))
-      .catch((err) => console.warn('GPS refresh on Auto-SOS:', err));
   };
 
   const handleCancelAutoSos = () => {
-    setAutoSosWarning({ isOpen: false, reason: null, magnitude: 0 });
+    setAutoSosWarning((prev) => ({ ...prev, isOpen: false }));
+    if (detectorRef.current) {
+      detectorRef.current.resetPeak();
+    }
   };
 
   const handleSimulateFall = () => {
     if (detectorRef.current) {
       detectorRef.current.simulateFall();
-    } else {
-      handleMotionTrigger('fall', 28.5);
     }
   };
 
   const handleSimulateShake = () => {
     if (detectorRef.current) {
-      detectorRef.current.simulateViolentShake();
-    } else {
-      handleMotionTrigger('violent_shake', 27.2);
+      detectorRef.current.simulateShake();
     }
   };
 
@@ -211,13 +257,6 @@ export default function App() {
     if (detectorRef.current) {
       detectorRef.current.resetPeak();
     }
-  };
-
-  const handleRequestMotionPermission = async () => {
-    if (detectorRef.current) {
-      return await detectorRef.current.requestPermissions();
-    }
-    return true;
   };
 
   const handleToggleSiren = () => {
@@ -271,6 +310,20 @@ export default function App() {
     setIsSirenActive(true);
   };
 
+  const handleAuthSuccess = (user: UserProfile) => {
+    setCurrentUser(user);
+    setUserName(user.name);
+  };
+
+  const handleSignOut = () => {
+    authSignOut();
+    setCurrentUser(null);
+  };
+
+  const handlePaymentSuccess = (sub: AutoSosSubscription) => {
+    setAutoSosSubscription(sub);
+  };
+
   if (isCloaked) {
     return (
       <CalculatorCloak
@@ -282,7 +335,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col antialiased selection:bg-rose-500 selection:text-white">
-      {/* Top Bar Navigation with Language Selector */}
+      {/* Top Bar Navigation with Language Selector, Profile, and Lock Screen */}
       <TopBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -291,6 +344,10 @@ export default function App() {
         onToggleSiren={handleToggleSiren}
         currentLanguage={currentLanguage}
         onSelectLanguage={setCurrentLanguage}
+        currentUser={currentUser}
+        onOpenAuth={() => setIsAuthModalOpen(true)}
+        onSignOut={handleSignOut}
+        onOpenLockScreen={() => setIsLockScreenOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -313,6 +370,9 @@ export default function App() {
             onRequestPermission={handleRequestMotionPermission}
             externalActiveSos={externalActiveSos}
             initialCustomNote={sosCustomNote}
+            onOpenLockScreen={() => setIsLockScreenOpen(true)}
+            onOpenPayment={() => setIsPaymentModalOpen(true)}
+            subscription={autoSosSubscription}
           />
         )}
 
@@ -422,6 +482,33 @@ export default function App() {
           setActiveTab('sos');
           setExternalActiveSos(true);
         }}
+      />
+
+      {/* Focused Distraction-Free Emergency Lock Screen (SOS, Torch, Silent Siren only) */}
+      <EmergencyLockScreen
+        isOpen={isLockScreenOpen}
+        onExit={() => setIsLockScreenOpen(false)}
+        contacts={contacts}
+        userName={userName}
+        userLocation={userLocation}
+        onTriggerSosMain={() => {
+          setActiveTab('sos');
+          setExternalActiveSos(true);
+        }}
+      />
+
+      {/* User Login & Sign In / Sign Up Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+      />
+
+      {/* Auto-SOS Payment & Subscription Modal (UPI, Cards, NetBanking, 100% Free Grant) */}
+      <AutoSosPaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        onPaymentSuccess={handlePaymentSuccess}
       />
 
       {/* Mobile Bottom Navigation Bar */}

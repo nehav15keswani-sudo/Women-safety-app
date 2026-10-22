@@ -210,6 +210,14 @@ export class MotionDetector {
     this.onTrigger('violent_shake', 27.2);
   }
 
+  public simulateShake(): void {
+    this.simulateViolentShake();
+  }
+
+  public requestPermission(): Promise<boolean> {
+    return this.requestPermissions();
+  }
+
   public resetPeak(): void {
     this.peakMagnitude = 0;
   }

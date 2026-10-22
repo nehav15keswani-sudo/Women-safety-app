@@ -16,12 +16,19 @@ import {
   Flame,
   Check,
   Copy,
+  WifiOff,
+  Radio,
+  Smartphone,
+  Lock,
+  Send,
+  X,
 } from 'lucide-react';
 import { EmergencyContact, LocationCoordinates } from '../types';
 import { getCurrentLocation, buildGoogleMapsUrl, formatSosText, dispatchWhatsApp, dispatchSms } from '../utils/location';
 import { startEmergencySiren, stopEmergencySiren, isSirenPlaying } from '../utils/audioAlert';
 import { AutoSosSettingsCard } from './AutoSosSettingsCard';
 import { MotionDetectorConfig, MotionTelemetry } from '../utils/motionDetector';
+import { AutoSosSubscription } from '../utils/paymentStorage';
 
 interface SosBeaconProps {
   contacts: EmergencyContact[];
@@ -40,6 +47,9 @@ interface SosBeaconProps {
   onRequestPermission: () => Promise<boolean>;
   externalActiveSos?: boolean;
   initialCustomNote?: string;
+  onOpenLockScreen?: () => void;
+  onOpenPayment?: () => void;
+  subscription?: AutoSosSubscription;
 }
 
 export const SosBeacon: React.FC<SosBeaconProps> = ({
@@ -59,6 +69,9 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
   onRequestPermission,
   externalActiveSos,
   initialCustomNote,
+  onOpenLockScreen,
+  onOpenPayment,
+  subscription,
 }) => {
   const [isSosActive, setIsSosActive] = useState(false);
   const [holdingProgress, setHoldingProgress] = useState(0);
@@ -70,6 +83,29 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
   const [isSirenOn, setIsSirenOn] = useState(false);
   const [isStrobeOn, setIsStrobeOn] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Network loss detection & offline fallback prompt
+  const [isNetworkLost, setIsNetworkLost] = useState<boolean>(!navigator.onLine);
+  const [showOfflineSmsPrompt, setShowOfflineSmsPrompt] = useState<boolean>(false);
+  const [simulatedNetworkLoss, setSimulatedNetworkLoss] = useState(false);
+
+  useEffect(() => {
+    const handleOffline = () => {
+      setIsNetworkLost(true);
+      setShowOfflineSmsPrompt(true);
+    };
+    const handleOnline = () => {
+      setIsNetworkLost(false);
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, []);
 
   // Sync external SOS trigger from Auto-SOS fall/shake
   useEffect(() => {
@@ -102,6 +138,11 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
     setHoldingProgress(0);
     setCountdown(null);
     setIsSosActive(true);
+
+    // If network is lost, immediately surface hard-coded offline SMS intent
+    if (!navigator.onLine || isNetworkLost || simulatedNetworkLoss) {
+      setShowOfflineSmsPrompt(true);
+    }
 
     // Refresh high precision location
     setLocationLoading(true);
@@ -290,6 +331,96 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Big SOS Trigger and Immediate Defense Controls (7 cols) */}
         <div className="lg:col-span-7 space-y-6">
+          {/* TOTAL NETWORK LOSS FALLBACK MECHANISM BANNER */}
+          {(isNetworkLost || simulatedNetworkLoss || showOfflineSmsPrompt) && (
+            <div className="bg-gradient-to-r from-amber-600 via-rose-600 to-rose-700 text-white p-5 rounded-3xl shadow-xl border border-amber-400/40 animate-fade-in relative">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 rounded-2xl bg-white/20 backdrop-blur-sm shadow-inner">
+                    <WifiOff className="w-6 h-6 text-white animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
+                        CRITICAL FALLBACK
+                      </span>
+                      <span className="text-[10px] text-amber-200 font-bold">GSM Intent Active</span>
+                    </div>
+                    <h3 className="text-base font-extrabold mt-0.5">
+                      Total Network Loss Detected
+                    </h3>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setShowOfflineSmsPrompt(false);
+                    setSimulatedNetworkLoss(false);
+                  }}
+                  className="p-1 text-white/70 hover:text-white rounded-lg hover:bg-white/10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <p className="text-xs text-rose-100 mt-2.5 leading-relaxed">
+                Cellular data &amp; internet connection are offline. WhatsApp and cloud alerts cannot be delivered.
+                Trigger the hard-coded system intent below to transmit your <strong>last known GPS coordinates</strong> to primary emergency contacts via native SMS.
+              </p>
+
+              {/* Last Known Coordinates Badge */}
+              <div className="mt-3 p-3 bg-black/30 rounded-2xl border border-white/10 flex items-center justify-between text-xs font-mono">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-amber-300 shrink-0" />
+                  <div>
+                    <span className="text-[10px] text-amber-200 uppercase font-bold block">
+                      Last Known Location:
+                    </span>
+                    <span className="text-white text-xs">
+                      {location
+                        ? `${location.lat.toFixed(5)}° N, ${location.lng.toFixed(5)}° E (±${Math.round(location.accuracy ?? 10)}m)`
+                        : 'Pre-cached offline GPS lock'}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleCopyLocation}
+                  className="px-2 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-[10px] font-sans font-bold"
+                >
+                  {copiedLink ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+
+              {/* Hard-Coded System Intent Trigger */}
+              <div className="mt-3.5 flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => {
+                    const primary = contacts.find((c) => c.isPrimary) || contacts[0];
+                    const targetPhone = primary ? primary.phone : '';
+                    const offlineSmsText = formatSosText(
+                      userName,
+                      location,
+                      '[TOTAL NETWORK LOSS]: Emergency triggered during cellular blackout. Last known GPS location attached.'
+                    );
+                    dispatchSms(targetPhone, offlineSmsText);
+                  }}
+                  className="flex-1 py-3 px-4 bg-white hover:bg-amber-50 text-rose-700 rounded-xl font-black text-xs shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                >
+                  <Send className="w-4 h-4 text-rose-600" />
+                  <span>TRIGGER HARD-CODED OFFLINE SMS INTENT</span>
+                </button>
+
+                <button
+                  onClick={() => setSimulatedNetworkLoss(!simulatedNetworkLoss)}
+                  className="px-3 py-2 bg-black/25 hover:bg-black/35 text-white/90 rounded-xl text-[11px] font-bold"
+                >
+                  {simulatedNetworkLoss ? 'Reset Test' : 'Simulate Blackout'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Active State Banner */}
           {isSosActive ? (
             <div className="bg-rose-600 text-white p-6 rounded-3xl shadow-lg shadow-rose-600/20">
@@ -414,24 +545,34 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
                   </button>
                 </div>
 
-                <div className="mt-6 flex items-center justify-center gap-3">
+                <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-2.5">
                   <button
                     onClick={triggerSosNow}
                     className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:underline px-3 py-1.5"
                   >
                     Instant Emergency Tap (Skip Hold)
                   </button>
+
+                  {onOpenLockScreen && (
+                    <button
+                      onClick={onOpenLockScreen}
+                      className="px-4 py-2 bg-black hover:bg-slate-900 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm border border-slate-800 transition-all active:scale-95"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                      <span>Launch 1-Touch Lock Screen Mode</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
           {/* Quick Hardware & Defense Tools Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             {/* Siren Alarm */}
             <button
               onClick={toggleSiren}
-              className={`p-4 rounded-2xl border transition-all text-left flex flex-col justify-between ${
+              className={`p-3.5 rounded-2xl border transition-all text-left flex flex-col justify-between ${
                 isSirenOn
                   ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400 text-rose-700 dark:text-rose-300 ring-2 ring-rose-500/20'
                   : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-slate-300'
@@ -443,14 +584,14 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
               </div>
               <div>
                 <p className="text-sm font-bold">{isSirenOn ? 'Stop Siren' : 'Police Siren'}</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">High-decibel alarm</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">High-decibel</p>
               </div>
             </button>
 
             {/* Strobe Light */}
             <button
               onClick={() => setIsStrobeOn(!isStrobeOn)}
-              className={`p-4 rounded-2xl border transition-all text-left flex flex-col justify-between ${
+              className={`p-3.5 rounded-2xl border transition-all text-left flex flex-col justify-between ${
                 isStrobeOn
                   ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 text-amber-700 dark:text-amber-300 ring-2 ring-amber-500/20'
                   : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-slate-300'
@@ -462,14 +603,14 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
               </div>
               <div>
                 <p className="text-sm font-bold">Strobe Light</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Disorient &amp; signal</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Disorient</p>
               </div>
             </button>
 
             {/* Ambient Audio Evidence */}
             <button
               onClick={onStartAudioRecording}
-              className={`p-4 rounded-2xl border transition-all text-left flex flex-col justify-between ${
+              className={`p-3.5 rounded-2xl border transition-all text-left flex flex-col justify-between ${
                 isAudioRecording
                   ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400 text-rose-700 dark:text-rose-300 ring-2 ring-rose-500/20'
                   : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-slate-300'
@@ -487,14 +628,14 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
                 <p className="text-sm font-bold">
                   {isAudioRecording ? 'Recording...' : 'Record Audio'}
                 </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Capture evidence</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Evidence</p>
               </div>
             </button>
 
             {/* Fake Call Trigger */}
             <button
               onClick={onOpenFakeCall}
-              className="p-4 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-slate-300 transition-all text-left flex flex-col justify-between"
+              className="p-3.5 rounded-2xl border bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:border-slate-300 transition-all text-left flex flex-col justify-between"
             >
               <div className="flex items-center justify-between mb-2">
                 <Phone className="w-5 h-5 text-emerald-600" />
@@ -503,6 +644,21 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
               <div>
                 <p className="text-sm font-bold">Fake Call</p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Exit excuse</p>
+              </div>
+            </button>
+
+            {/* Emergency Lock Screen */}
+            <button
+              onClick={onOpenLockScreen}
+              className="p-3.5 rounded-2xl border bg-black text-white border-slate-800 hover:border-rose-500/50 transition-all text-left flex flex-col justify-between shadow-sm group active:scale-95 col-span-2 sm:col-span-1"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Lock className="w-5 h-5 text-rose-500 group-hover:scale-110 transition-transform" />
+                <span className="text-[9px] uppercase font-bold tracking-wider text-rose-400 bg-rose-950 px-1.5 py-0.5 rounded">0-Distract</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold">Lock Screen</p>
+                <p className="text-xs text-slate-400 mt-0.5">Focus SOS</p>
               </div>
             </button>
           </div>
@@ -770,6 +926,8 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
           onSimulateShake={onSimulateShake}
           onResetPeak={onResetPeak}
           onRequestPermission={onRequestPermission}
+          onOpenPayment={onOpenPayment}
+          subscription={subscription}
         />
       </div>
     </div>

@@ -448,7 +448,7 @@ export const QuickSosWidget: React.FC<QuickSosWidgetProps> = ({
                     </span>
                     <span className="font-mono text-slate-900 dark:text-slate-100 font-medium">
                       {currentCoords
-                        ? `${currentCoords.lat.toFixed(4)}° N, ${currentCoords.lng.toFixed(4)}° E (±${Math.round(currentCoords.accuracy)}m)`
+                        ? `${currentCoords.lat.toFixed(4)}° N, ${currentCoords.lng.toFixed(4)}° E (±${Math.round(currentCoords.accuracy ?? 10)}m)`
                         : 'Fetching GPS coordinates...'}
                     </span>
                   </div>

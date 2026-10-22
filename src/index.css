@@ -7,3 +7,47 @@
     -webkit-tap-highlight-color: transparent;
   }
 }
+
+.font-display {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+}
+
+/* Custom leaflet marker styling */
+.custom-price-pin {
+  background: #1c1917;
+  color: #fafaf9;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: -0.01em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+  cursor: pointer;
+}
+
+.custom-price-pin:hover,
+.custom-price-pin.active {
+  background: #000000;
+  color: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  border-color: #f59e0b;
+}
+
+.leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+  background: #ffffff;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  line-height: normal;
+}

@@ -7,13 +7,18 @@ import {
   RotateCcw,
   Sliders,
   Smartphone,
-  Info
+  Info,
+  CreditCard,
+  Crown,
+  Sparkles,
+  Receipt
 } from 'lucide-react';
 import {
   SensitivityLevel,
   MotionTelemetry,
   MotionDetectorConfig
 } from '../utils/motionDetector';
+import { AutoSosSubscription } from '../utils/paymentStorage';
 
 interface AutoSosSettingsCardProps {
   config: MotionDetectorConfig;
@@ -25,6 +30,8 @@ interface AutoSosSettingsCardProps {
   onSimulateShake: () => void;
   onResetPeak: () => void;
   onRequestPermission: () => Promise<boolean>;
+  onOpenPayment?: () => void;
+  subscription?: AutoSosSubscription;
 }
 
 export const AutoSosSettingsCard: React.FC<AutoSosSettingsCardProps> = ({
@@ -37,8 +44,12 @@ export const AutoSosSettingsCard: React.FC<AutoSosSettingsCardProps> = ({
   onSimulateShake,
   onResetPeak,
   onRequestPermission,
+  onOpenPayment,
+  subscription,
 }) => {
   const [permissionPrompted, setPermissionPrompted] = useState(false);
+
+  const isPro = subscription?.status === 'active' && subscription?.tier !== 'free';
 
   const handleToggle = async () => {
     if (!isEnabled) {
@@ -60,6 +71,71 @@ export const AutoSosSettingsCard: React.FC<AutoSosSettingsCardProps> = ({
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+      {/* AUTO-SOS PAYMENT & PLAN PROMOTION BANNER */}
+      {isPro ? (
+        <div className="p-4 bg-gradient-to-r from-rose-500/10 via-emerald-500/10 to-teal-500/10 border border-rose-300 dark:border-rose-900/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-pink-500 text-white flex items-center justify-center shadow-sm shrink-0">
+              <Crown className="w-5 h-5 text-amber-300" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider">
+                  Auto-SOS 100% Free for Women
+                </span>
+                <span className="text-[10px] px-2 py-0.5 bg-rose-600 text-white rounded-full font-bold">
+                  ₹0 Free Shield Active
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                Full 24/7 Fall Detection, Violent Struggle Sensors &amp; 1-Touch Lockscreen Active • No Payment Required
+              </p>
+            </div>
+          </div>
+
+          {onOpenPayment && (
+            <button
+              onClick={onOpenPayment}
+              className="px-3.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto transition-colors"
+            >
+              <Receipt className="w-3.5 h-3.5 text-rose-600" />
+              <span>Shield Certificate</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="p-4 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-purple-500/10 border border-rose-300/40 dark:border-rose-900/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center shadow-md shrink-0">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider">
+                  Auto-SOS Guardian Pro Plan
+                </span>
+                <span className="text-[9px] px-1.5 py-0.5 bg-rose-600 text-white rounded font-extrabold uppercase">
+                  From ₹99 / ₹0 Free Grant
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
+                24/7 Automated Fall Impact Dispatch, Continuous Audio Evidence &amp; Priority GSM Relays.
+              </p>
+            </div>
+          </div>
+
+          {onOpenPayment && (
+            <button
+              onClick={onOpenPayment}
+              className="px-4 py-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white rounded-xl text-xs font-black shadow-md flex items-center gap-1.5 self-start sm:self-auto transition-transform active:scale-95 shrink-0"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Payment Options (UPI/Card)</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Title & Master Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-5">
         <div>

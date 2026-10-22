@@ -42,6 +42,22 @@ export default defineConfig(() => {
               purpose: 'maskable',
             },
           ],
+          shortcuts: [
+            {
+              name: 'One-Touch Lock Screen SOS',
+              short_name: '1-Touch SOS',
+              description: 'Instant 1-Touch Emergency Lock Screen Alert',
+              url: '/?mode=lockscreen&action=onetouch',
+              icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }],
+            },
+            {
+              name: 'Emergency Dial 112',
+              short_name: 'Call 112',
+              description: 'Emergency Police & ERSS Pan-India',
+              url: '/?action=dial112',
+              icons: [{ src: '/pwa-192x192.png', sizes: '192x192' }],
+            },
+          ],
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
