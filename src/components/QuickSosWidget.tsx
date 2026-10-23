@@ -28,7 +28,6 @@ interface QuickSosWidgetProps {
   contacts: EmergencyContact[];
   userName: string;
   userLocation: LocationCoordinates | null;
-  onEnterCloak?: () => void;
   onTriggerSosMain?: () => void;
 }
 
@@ -36,7 +35,6 @@ export const QuickSosWidget: React.FC<QuickSosWidgetProps> = ({
   contacts,
   userName,
   userLocation,
-  onEnterCloak,
   onTriggerSosMain,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -270,15 +268,6 @@ export const QuickSosWidget: React.FC<QuickSosWidgetProps> = ({
               </div>
 
               <div className="flex items-center gap-1">
-                {onEnterCloak && (
-                  <button
-                    onClick={onEnterCloak}
-                    title="Quick disguise as Calculator"
-                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
-                  >
-                    <EyeOff className="w-4 h-4" />
-                  </button>
-                )}
                 <button
                   onClick={() => setIsOpen(false)}
                   className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"

@@ -17,8 +17,8 @@ export const LANGUAGES: LanguageOption[] = [
 
 export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
   en: {
-    appName: 'Aegis SafeGuard',
-    tagline: "Women's Safety & Legal Protection Network",
+    appName: 'Safe Guard',
+    tagline: 'Personal Safety & Legal Protection for Women, Men & Families',
     sosTab: 'SOS Beacon',
     walkTab: 'Walk With Me',
     fakeCallTab: 'Fake Call',
@@ -57,8 +57,8 @@ export const TRANSLATIONS: Record<SupportedLanguage, Record<string, string>> = {
     forUneducated: 'Easy Voice Explanations for Common Women',
   },
   hi: {
-    appName: 'एजिस सुरक्षा',
-    tagline: 'महिला सुरक्षा एवं सरल कानूनी सहायता',
+    appName: 'सेफ गार्ड',
+    tagline: 'महिला, पुरुष एवं परिवार सुरक्षा व सरल कानूनी अधिकार',
     sosTab: 'आपातकालीन SOS',
     walkTab: 'साथ चलो (ट्रैकर)',
     fakeCallTab: 'नकली कॉल',

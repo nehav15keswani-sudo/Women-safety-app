@@ -9,7 +9,6 @@ import { BottomNav } from './components/BottomNav';
 import { SosBeacon } from './components/SosBeacon';
 import { WalkWithMe } from './components/WalkWithMe';
 import { FakeCallModal } from './components/FakeCallModal';
-import { CalculatorCloak } from './components/CalculatorCloak';
 import { AudioEvidenceRecorder } from './components/AudioEvidenceRecorder';
 import { HelplineDirectory } from './components/HelplineDirectory';
 import { EmergencyContacts } from './components/EmergencyContacts';
@@ -20,14 +19,22 @@ import { VideoEvidenceRecorder } from './components/VideoEvidenceRecorder';
 import { OfflineMapNavigator } from './components/OfflineMapNavigator';
 import { AutoSosWarningModal } from './components/AutoSosWarningModal';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { FirstPageAuth } from './components/FirstPageAuth';
 import { QuickSosWidget } from './components/QuickSosWidget';
 import { AuthModal } from './components/AuthModal';
 import { EmergencyLockScreen } from './components/EmergencyLockScreen';
 import { AutoSosPaymentModal } from './components/AutoSosPaymentModal';
+import { LowBatteryModal } from './components/LowBatteryModal';
+import {
+  BatterySentinel,
+  BatteryConfig,
+  BatteryState,
+  getBatteryConfig,
+  saveBatteryConfig
+} from './utils/batterySentinel';
 import {
   UserProfile,
   getCurrentUser,
-  initializeDefaultUser,
   signOut as authSignOut
 } from './utils/authStorage';
 import {
@@ -52,11 +59,19 @@ export default function App() {
     return (localStorage.getItem('aegis_language') as SupportedLanguage) || 'en';
   });
 
-  const [isCloaked, setIsCloaked] = useState(false);
   const [isFakeCallOpen, setIsFakeCallOpen] = useState(false);
   const [isSirenActive, setIsSirenActive] = useState(false);
   const [isAudioRecording, setIsAudioRecording] = useState(false);
   const [userLocation, setUserLocation] = useState<LocationCoordinates | null>(null);
+
+  // Battery Sentinel & Dying Phone Auto-SOS State
+  const [batteryConfig, setBatteryConfig] = useState<BatteryConfig>(() => getBatteryConfig());
+  const [batteryState, setBatteryState] = useState<BatteryState | null>(null);
+  const [lowBatteryAlert, setLowBatteryAlert] = useState<{ isOpen: boolean; percent: number }>({
+    isOpen: false,
+    percent: 5,
+  });
+  const batterySentinelRef = useRef<BatterySentinel | null>(null);
 
   // Authentication State
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => getCurrentUser());
@@ -122,15 +137,6 @@ export default function App() {
   // Motion detector reference
   const detectorRef = useRef<MotionDetector | null>(null);
 
-  // Initialize seed user if none exists
-  useEffect(() => {
-    if (!currentUser) {
-      initializeDefaultUser().then((u) => {
-        setCurrentUser(u);
-        setUserName(u.name);
-      });
-    }
-  }, [currentUser]);
 
   useEffect(() => {
     localStorage.setItem('aegis_language', currentLanguage);
@@ -301,18 +307,40 @@ export default function App() {
     setRecordings((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const handleSecretSosFromCloak = () => {
-    setIsCloaked(false);
-    setActiveTab('sos');
-    setExternalActiveSos(true);
-    setSosCustomNote('[DISCREET CODE]: Emergency triggered via disguised PIN');
-    startEmergencySiren();
-    setIsSirenActive(true);
-  };
+  // Initialize Battery Sentinel for dying phone auto-location dispatch
+  useEffect(() => {
+    const sentinel = new BatterySentinel(
+      batteryConfig,
+      (state) => {
+        setBatteryState(state);
+      },
+      (percent) => {
+        setLowBatteryAlert({
+          isOpen: true,
+          percent,
+        });
+      }
+    );
+
+    batterySentinelRef.current = sentinel;
+    sentinel.start();
+
+    return () => {
+      sentinel.stop();
+    };
+  }, [batteryConfig]);
 
   const handleAuthSuccess = (user: UserProfile) => {
     setCurrentUser(user);
     setUserName(user.name);
+    try {
+      const savedContacts = localStorage.getItem('aegis_contacts');
+      if (savedContacts) {
+        setContacts(JSON.parse(savedContacts));
+      }
+    } catch {
+      // ignore
+    }
   };
 
   const handleSignOut = () => {
@@ -324,13 +352,9 @@ export default function App() {
     setAutoSosSubscription(sub);
   };
 
-  if (isCloaked) {
-    return (
-      <CalculatorCloak
-        onExit={() => setIsCloaked(false)}
-        onSecretSos={handleSecretSosFromCloak}
-      />
-    );
+  // FIRST PAGE: Sign up with password first, then use app fully offline
+  if (!currentUser) {
+    return <FirstPageAuth onAuthSuccess={handleAuthSuccess} />;
   }
 
   return (
@@ -339,7 +363,6 @@ export default function App() {
       <TopBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onEnterCloak={() => setIsCloaked(true)}
         isSirenActive={isSirenActive}
         onToggleSiren={handleToggleSiren}
         currentLanguage={currentLanguage}
@@ -373,6 +396,16 @@ export default function App() {
             onOpenLockScreen={() => setIsLockScreenOpen(true)}
             onOpenPayment={() => setIsPaymentModalOpen(true)}
             subscription={autoSosSubscription}
+            batteryConfig={batteryConfig}
+            onUpdateBatteryConfig={(cfg) => {
+              const updated = { ...batteryConfig, ...cfg };
+              setBatteryConfig(updated);
+              saveBatteryConfig(updated);
+            }}
+            batteryState={batteryState}
+            onSimulateLowBattery={(pct) => {
+              setLowBatteryAlert({ isOpen: true, percent: pct ?? 5 });
+            }}
           />
         )}
 
@@ -477,7 +510,6 @@ export default function App() {
         contacts={contacts}
         userName={userName}
         userLocation={userLocation}
-        onEnterCloak={() => setIsCloaked(true)}
         onTriggerSosMain={() => {
           setActiveTab('sos');
           setExternalActiveSos(true);
@@ -509,6 +541,16 @@ export default function App() {
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
         onPaymentSuccess={handlePaymentSuccess}
+      />
+
+      {/* Dying Phone / Low Battery Auto-Location Dispatch Modal */}
+      <LowBatteryModal
+        isOpen={lowBatteryAlert.isOpen}
+        batteryPercent={lowBatteryAlert.percent}
+        location={userLocation}
+        contacts={contacts}
+        userName={userName}
+        onClose={() => setLowBatteryAlert((prev) => ({ ...prev, isOpen: false }))}
       />
 
       {/* Mobile Bottom Navigation Bar */}

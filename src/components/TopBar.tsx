@@ -33,7 +33,6 @@ export type AppTab =
 interface TopBarProps {
   activeTab: AppTab;
   setActiveTab: (tab: AppTab) => void;
-  onEnterCloak: () => void;
   isSirenActive: boolean;
   onToggleSiren: () => void;
   currentLanguage: SupportedLanguage;
@@ -47,7 +46,6 @@ interface TopBarProps {
 export const TopBar: React.FC<TopBarProps> = ({
   activeTab,
   setActiveTab,
-  onEnterCloak,
   isSirenActive,
   onToggleSiren,
   currentLanguage,
@@ -73,7 +71,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               onClick={() => setActiveTab('sos')}
               className="text-lg font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0 cursor-pointer"
             >
-              {t.appName}
+              Safe Guard
             </span>
           </div>
 
@@ -200,14 +198,6 @@ export const TopBar: React.FC<TopBarProps> = ({
               </button>
             )}
 
-            <button
-              onClick={onEnterCloak}
-              className="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 border border-slate-200 dark:border-slate-700"
-              title="Disguise this screen as a regular Calculator"
-            >
-              <EyeOff className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-              <span className="hidden sm:inline">{t.discreetMode}</span>
-            </button>
 
             {/* User Profile / Sign In Button */}
             {currentUser ? (

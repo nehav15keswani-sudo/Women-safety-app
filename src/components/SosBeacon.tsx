@@ -27,8 +27,10 @@ import { EmergencyContact, LocationCoordinates } from '../types';
 import { getCurrentLocation, buildGoogleMapsUrl, formatSosText, dispatchWhatsApp, dispatchSms } from '../utils/location';
 import { startEmergencySiren, stopEmergencySiren, isSirenPlaying } from '../utils/audioAlert';
 import { AutoSosSettingsCard } from './AutoSosSettingsCard';
+import { BatterySosCard } from './BatterySosCard';
 import { MotionDetectorConfig, MotionTelemetry } from '../utils/motionDetector';
 import { AutoSosSubscription } from '../utils/paymentStorage';
+import { BatteryConfig, BatteryState } from '../utils/batterySentinel';
 
 interface SosBeaconProps {
   contacts: EmergencyContact[];
@@ -50,6 +52,10 @@ interface SosBeaconProps {
   onOpenLockScreen?: () => void;
   onOpenPayment?: () => void;
   subscription?: AutoSosSubscription;
+  batteryConfig?: BatteryConfig;
+  onUpdateBatteryConfig?: (newConfig: Partial<BatteryConfig>) => void;
+  batteryState?: BatteryState | null;
+  onSimulateLowBattery?: (percent?: number) => void;
 }
 
 export const SosBeacon: React.FC<SosBeaconProps> = ({
@@ -72,6 +78,10 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
   onOpenLockScreen,
   onOpenPayment,
   subscription,
+  batteryConfig,
+  onUpdateBatteryConfig,
+  batteryState,
+  onSimulateLowBattery,
 }) => {
   const [isSosActive, setIsSosActive] = useState(false);
   const [holdingProgress, setHoldingProgress] = useState(0);
@@ -930,6 +940,18 @@ export const SosBeacon: React.FC<SosBeaconProps> = ({
           subscription={subscription}
         />
       </div>
+
+      {/* Dying Phone & Low Battery Auto-Location Sentinel */}
+      {batteryConfig && onUpdateBatteryConfig && onSimulateLowBattery && (
+        <div className="mt-8">
+          <BatterySosCard
+            config={batteryConfig}
+            onUpdateConfig={onUpdateBatteryConfig}
+            batteryState={batteryState ?? null}
+            onSimulateLowBattery={onSimulateLowBattery}
+          />
+        </div>
+      )}
     </div>
   );
 };
