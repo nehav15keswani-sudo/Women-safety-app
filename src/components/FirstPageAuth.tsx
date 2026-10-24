@@ -286,7 +286,7 @@ export const FirstPageAuth: React.FC<FirstPageAuthProps> = ({ onAuthSuccess }) =
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Neha Keswani"
+                    placeholder="e.g. Vicky, Neha"
                     className="w-full pl-10 pr-3 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 transition-colors"
                   />
                 </div>
@@ -445,7 +445,7 @@ export const FirstPageAuth: React.FC<FirstPageAuthProps> = ({ onAuthSuccess }) =
                     required
                     value={signinIdentifier}
                     onChange={(e) => setSigninIdentifier(e.target.value)}
-                    placeholder="e.g. Neha Keswani or 9876543210"
+                    placeholder="e.g. Vicky, Neha, or 9876543210"
                     className="w-full pl-10 pr-3 py-3 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-rose-500/40 focus:border-rose-500 transition-colors"
                   />
                 </div>

@@ -204,7 +204,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={signInIdentifier}
                     onChange={(e) => setSignInIdentifier(e.target.value)}
-                    placeholder="e.g. Neha Keswani or +91 98765 43210"
+                    placeholder="e.g. Vicky, Neha, or +91 98765 43210"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20"
                   />
                 </div>
@@ -266,7 +266,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     required
                     value={signUpName}
                     onChange={(e) => setSignUpName(e.target.value)}
-                    placeholder="e.g. Priya Sharma"
+                    placeholder="e.g. Vicky, Neha"
                     className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20"
                   />
                 </div>
